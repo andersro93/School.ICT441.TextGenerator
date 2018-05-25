@@ -3,7 +3,7 @@ from typing import Dict, Any
 import numpy
 from keras import Sequential
 from keras.callbacks import ModelCheckpoint
-from keras.layers import LSTM, Dense, Dropout
+from keras.layers import LSTM, Dense, Dropout, Bidirectional
 from keras.utils import np_utils
 
 from .model import Model
@@ -20,11 +20,11 @@ class CharacterModel(Model):
     data_y: numpy.ndarray = None
     """ The output data """
 
-    pattern_length: int = 10
+    pattern_length: int = 100
     """ The total length of each training pattern """
 
-    __word_to_int_dictionary: Dict[str, int] = None
-    """ The dictionary containing the words with their integer value """
+    __char_to_int_dictionary: Dict[str, int] = None
+    """ The dictionary containing the character with their integer value """
 
     __unique_chars: set = None
     """ A set off all the unique chars """
@@ -47,7 +47,7 @@ class CharacterModel(Model):
         self._concat_assets_content_to_one_string()
 
         self.__unique_chars = sorted(list(set(self._raw_content)))
-        self.__word_to_int_dictionary = dict((character, index) for index, character in enumerate(self.__unique_chars))
+        self.__char_to_int_dictionary = dict((character, index) for index, character in enumerate(self.__unique_chars))
 
         data_x, data_y = self._format_data_to_x_and_y()
 
@@ -60,7 +60,7 @@ class CharacterModel(Model):
         if print_info:
             print(f"Total length: {len(self._raw_content)}")
             print(f"Characters: {len(self.__unique_chars)}")
-            print("Total Patterns: ", amount_of_patterns)
+            print(f"Total Patterns: {amount_of_patterns}")
 
     def generate_text_of_length(self, length: int, verbose=False) -> str:
         """
@@ -89,10 +89,10 @@ class CharacterModel(Model):
             x_input = numpy.reshape(pattern, (1, len(pattern), 1))
 
             # Get a prediction
-            prediction = self._model.predict(x_input)
+            predictions = self._model.predict(x_input)
 
-            # Select the prediction with highest probability
-            predicted_int_for_letter = numpy.argmax(prediction)
+            # Obtain the predicted letter
+            predicted_int_for_letter = numpy.random.choice(len(predictions[0]), p=predictions[0])
 
             # Append the translated letter to the return string
             return_string += self.__get_letter_from_number(predicted_int_for_letter)
@@ -110,19 +110,12 @@ class CharacterModel(Model):
         """
         model = Sequential()
 
-        # Layer 1
         model.add(LSTM(256, input_shape=(self.data_x.shape[1], self.data_x.shape[2]), return_sequences=True))
-
-        # Layer 2
         model.add(Dropout(0.2))
 
-        # Layer 3
-        model.add(LSTM(256))
-
-        # Layer 4
+        model.add(Bidirectional(LSTM(256)))
         model.add(Dropout(0.2))
 
-        # Layer 5
         model.add(Dense(self.data_y.shape[1], activation='softmax'))
 
         self._model = model
@@ -154,8 +147,8 @@ class CharacterModel(Model):
         :param number:
         :return: str:
         """
-        for character in self.__word_to_int_dictionary:
-            if self.__word_to_int_dictionary[character] == number:
+        for character in self.__char_to_int_dictionary:
+            if self.__char_to_int_dictionary[character] == number:
                 return character
 
         return f'Could not find letter for number: {number}'
@@ -172,7 +165,7 @@ class CharacterModel(Model):
             seq_x = self._raw_content[i:i + self.pattern_length]
             seq_y = self._raw_content[i + self.pattern_length]
 
-            data_x.append([self.__word_to_int_dictionary[char] for char in seq_x])
-            data_y.append(self.__word_to_int_dictionary[seq_y])
+            data_x.append([self.__char_to_int_dictionary[char] for char in seq_x])
+            data_y.append(self.__char_to_int_dictionary[seq_y])
 
         return data_x, data_y
