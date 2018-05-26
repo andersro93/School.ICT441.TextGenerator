@@ -1,6 +1,8 @@
-from typing import Dict, Any
+import sys
+from typing import Dict
 
 import numpy
+import self as self
 from keras import Sequential
 from keras.callbacks import ModelCheckpoint
 from keras.layers import LSTM, Dense, Dropout, Bidirectional
@@ -37,11 +39,11 @@ class CharacterModel(Model):
 
         self._model_path = "./generated_models/character-{epoch:02d}-{loss:.4f}.hdf5"
 
-    def prepare_model(self, print_info=False):
+    def prepare_model(self, print_info=False) -> self:
         """
         Prepares the model, parses data etc..
         :type print_info: bool, Prints information about parsing if true
-        :return: None
+        :return: self
         """
         self._read_data_from_assets()
         self._concat_assets_content_to_one_string()
@@ -62,6 +64,8 @@ class CharacterModel(Model):
             print(f"Characters: {len(self.__unique_chars)}")
             print(f"Total Patterns: {amount_of_patterns}")
 
+        return self
+
     def generate_text_of_length(self, length: int, verbose=False) -> str:
         """
         Predicts and prints from the given phrase.
@@ -80,8 +84,10 @@ class CharacterModel(Model):
         pattern = self.data_x[pattern_id]
 
         if verbose:
-            print('Seed used to print:')
+            print('Seed used:')
             print(''.join(self.__get_letter_from_number(value) for value in pattern))
+
+            print('Generated text:')
 
         # Predict the given times
         for i in range(length):
@@ -97,16 +103,19 @@ class CharacterModel(Model):
             # Append the translated letter to the return string
             return_string += self.__get_letter_from_number(predicted_int_for_letter)
 
+            if verbose:
+                sys.stdout.write(self.__get_letter_from_number(predicted_int_for_letter))
+
             # Add the letter to the next prediction
             pattern = numpy.append(pattern, predicted_int_for_letter)
             pattern = pattern[1:len(pattern)]
 
         return return_string
 
-    def create_model(self) -> None:
+    def create_model(self) -> self:
         """
         Creates the model and preserves it on the model object
-        :return: None
+        :return: self
         """
         model = Sequential()
 
@@ -116,16 +125,18 @@ class CharacterModel(Model):
         model.add(Bidirectional(LSTM(256)))
         model.add(Dropout(0.2))
 
-        model.add(Dense(self.data_y.shape[1], activation='softmax'))
+        model.add(Dense(self.data_y.shape[1], activation=self._activation_method))
 
         self._model = model
 
-    def train_model(self, epochs=30, batch_size=150) -> None:
+        return self
+
+    def train_model(self, epochs=30, batch_size=150) -> self:
         """
         Starts training the model
         :param epochs: int
         :param batch_size: int
-        :return: None
+        :return: self
         """
 
         self.compile_model()
